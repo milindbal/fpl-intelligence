@@ -20,7 +20,7 @@ function App() {
   ];
 
   return (
-    <div className="flex h-screen bg-bg-dark text-text-primary overflow-hidden">
+    <div className="flex h-dvh bg-bg-dark text-text-primary overflow-hidden">
       {/* Sidebar Navigation */}
       <aside className="w-64 bg-fpl-purple flex flex-col hidden md:flex shrink-0">
         <div className="p-6">
@@ -84,7 +84,7 @@ function App() {
       </main>
       
       {/* Mobile Navigation (Bottom Bar) */}
-      <nav className="md:hidden fixed bottom-0 w-full bg-fpl-purple border-t border-white/10 flex justify-around p-2 pb-safe z-50">
+      <nav className="md:hidden fixed bottom-0 w-full bg-fpl-purple border-t border-white/10 flex justify-around p-2 pb-[env(safe-area-inset-bottom)] z-50">
          {navItems.map((item) => (
             <NavLink
               key={item.to}
