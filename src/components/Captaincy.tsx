@@ -14,13 +14,27 @@ export default function Captaincy() {
   // Calculate captaincy options from the whole database (in reality, would just be from user's squad, but we don't have authenticated squad fetch for V0)
   // We'll score top players based on next GW projection
   
+  const fixtureByTeamId = new Map();
+  for (const fix of fixtures) {
+    if (fix.event === nextGw.id) {
+      fixtureByTeamId.set(fix.team_h, fix);
+      fixtureByTeamId.set(fix.team_a, fix);
+    }
+  }
+
+  const teamById = new Map();
+  for (const team of teams) {
+    teamById.set(team.id, team);
+  }
+
   const options = players
     .map(player => {
-      const f = fixtures.find(fix => fix.event === nextGw.id && (fix.team_h === player.teamId || fix.team_a === player.teamId));
+      const f = fixtureByTeamId.get(player.teamId);
       if (!f) return null;
       
       const isHome = f.team_h === player.teamId;
-      const opponent = teams.find(t => t.id === (isHome ? f.team_a : f.team_h));
+      const opponentId = isHome ? f.team_a : f.team_h;
+      const opponent = teamById.get(opponentId);
       
       if (!opponent) return null;
 
