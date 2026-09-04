@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useStaticData } from '../hooks/useStaticData';
 import { useLiveFpl } from '../hooks/useLiveFpl';
 import { calculateProjectedPoints } from '../utils/projections';
-import type { FPLPlayer } from '../types';
+import type { FPLPlayer, FPLTeam, FPLFixture } from '../types';
 import Captaincy from '../components/Captaincy';
 import { ArrowRight } from 'lucide-react';
 
@@ -10,6 +10,47 @@ export default function Transfers() {
   const { players, teams, fixtures, gameweeks, loading: staticLoading } = useStaticData();
   const { teamData, loading: liveLoading } = useLiveFpl();
   const [selectedSell, setSelectedSell] = useState<FPLPlayer | null>(null);
+
+  // Pre-compute maps for O(1) lookups instead of O(N) array searches
+  const teamsMap = useMemo(() => {
+    const map = new Map<number, FPLTeam>();
+    if (teams) {
+      for (const t of teams) {
+        map.set(t.id, t);
+      }
+    }
+    return map;
+  }, [teams]);
+
+  const teamFixturesMap = useMemo(() => {
+    const map = new Map<number, Map<number, FPLFixture>>();
+    if (fixtures) {
+      for (const fix of fixtures) {
+        if (!fix.event) continue;
+
+        // For home team
+        let homeMap = map.get(fix.team_h);
+        if (!homeMap) {
+          homeMap = new Map<number, FPLFixture>();
+          map.set(fix.team_h, homeMap);
+        }
+        if (!homeMap.has(fix.event)) {
+          homeMap.set(fix.event, fix);
+        }
+
+        // For away team
+        let awayMap = map.get(fix.team_a);
+        if (!awayMap) {
+          awayMap = new Map<number, FPLFixture>();
+          map.set(fix.team_a, awayMap);
+        }
+        if (!awayMap.has(fix.event)) {
+          awayMap.set(fix.event, fix);
+        }
+      }
+    }
+    return map;
+  }, [fixtures]);
 
   if (staticLoading || liveLoading) return <div className="p-8 text-center">Loading Transfer Lab...</div>;
 
@@ -19,12 +60,16 @@ export default function Transfers() {
   // Helper to project points for next N gameweeks
   const getMultiGwProjection = (player: FPLPlayer, numGws: number) => {
     let totalProj = 0;
+    const playerFixtures = teamFixturesMap.get(player.teamId);
+    if (!playerFixtures) return 0;
+
     for (let i = 0; i < numGws; i++) {
       const gw = startGwId + i;
-      const f = fixtures.find(fix => fix.event === gw && (fix.team_h === player.teamId || fix.team_a === player.teamId));
+      const f = playerFixtures.get(gw);
       if (f) {
         const isHome = f.team_h === player.teamId;
-        const opponent = teams.find(t => t.id === (isHome ? f.team_a : f.team_h));
+        const opponentId = isHome ? f.team_a : f.team_h;
+        const opponent = teamsMap.get(opponentId);
         if (opponent) {
           totalProj += calculateProjectedPoints({ player, opponent, isHome });
         }
