@@ -19,7 +19,10 @@ export function calculateOffensiveDifficulty(opponent: FPLTeam, isHome: boolean)
     difficulty = 11 - (xga * 4);
   } else {
     // Fallback to FPL defensive strength (1-5, higher is stronger)
-    const oppDefStrength = isHome ? opponent.strength_defence_away : opponent.strength_defence_home;
+    // Sometimes FPL API returns 0 for attack/defence strength, so fallback to overall strength
+    const oppDefStrength = isHome
+      ? (opponent.strength_defence_away || opponent.strength_overall_away || 3)
+      : (opponent.strength_defence_home || opponent.strength_overall_home || 3);
     difficulty = oppDefStrength * 2;
   }
   
@@ -48,7 +51,10 @@ export function calculateDefensiveDifficulty(opponent: FPLTeam, isHome: boolean)
     difficulty = (xg * 4) - 1;
   } else {
     // Fallback to FPL attacking strength
-    const oppAttStrength = isHome ? opponent.strength_attack_away : opponent.strength_attack_home;
+    // Sometimes FPL API returns 0 for attack/defence strength, so fallback to overall strength
+    const oppAttStrength = isHome
+      ? (opponent.strength_attack_away || opponent.strength_overall_away || 3)
+      : (opponent.strength_attack_home || opponent.strength_overall_home || 3);
     difficulty = oppAttStrength * 2;
   }
   
