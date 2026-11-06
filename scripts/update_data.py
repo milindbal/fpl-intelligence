@@ -156,10 +156,37 @@ def normalize_data(fpl_data, understat_players):
     with open(os.path.join(DATA_DIR, "gameweeks.json"), "w") as f:
         json.dump(fpl_data.get("events", []), f)
 
+
+def fetch_my_team(bootstrap_data):
+    team_id = os.environ.get("FPL_TEAM_ID")
+    data = {"entry": None, "picks": None}
+
+    if team_id:
+        print(f"Fetching team data for FPL_TEAM_ID: {team_id}...")
+        try:
+            current_gw = next((e['id'] for e in bootstrap_data.get('events', []) if e.get('is_current')), None)
+
+            entry_res = requests.get(f"{FPL_API_BASE}/entry/{team_id}/")
+            if entry_res.status_code == 200:
+                data["entry"] = entry_res.json()
+
+            if current_gw:
+                picks_res = requests.get(f"{FPL_API_BASE}/entry/{team_id}/event/{current_gw}/picks/")
+                if picks_res.status_code == 200:
+                    data["picks"] = picks_res.json()
+        except Exception as e:
+            print(f"Failed to fetch team data: {e}")
+    else:
+        print("FPL_TEAM_ID environment variable not set. Skipping my team fetch.")
+
+    with open(os.path.join(DATA_DIR, "my_team.json"), "w") as f:
+        json.dump(data, f)
+
 def main():
     ensure_dir(DATA_DIR)
     fpl_data = fetch_fpl_bootstrap()
     fetch_fpl_fixtures()
+    fetch_my_team(fpl_data)
     try:
         us_players = fetch_understat_players()
     except Exception as e:
