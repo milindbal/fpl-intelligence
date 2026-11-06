@@ -30,6 +30,17 @@ jobs:
           cache: 'npm'
       - name: Install dependencies
         run: npm ci
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+      - name: Fetch data
+        env:
+          FPL_TEAM_ID: ${{ vars.FPL_TEAM_ID }}
+        run: python scripts/update_data.py
       - name: Build
         run: npm run build
       - name: Setup Pages

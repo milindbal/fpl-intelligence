@@ -2,21 +2,23 @@ import { useStaticData } from '../hooks/useStaticData';
 import { useLiveFpl } from '../hooks/useLiveFpl';
 import { PlayerCard } from '../components/PlayerCard';
 import { ArrowUp, Activity } from 'lucide-react';
-import { useLocalStorage } from '../hooks/useLocalStorage';
 import { Link } from 'react-router-dom';
 
 export default function MyTeam() {
   const { players, loading: staticLoading } = useStaticData();
-  const { teamData, loading: liveLoading } = useLiveFpl();
-  const [teamId] = useLocalStorage('fplTeamId', '');
+  const { teamData, picks, loading: liveLoading, error } = useLiveFpl();
 
-  if (!teamId) {
+  if (staticLoading || liveLoading) {
+    return <div className="p-8 text-center text-text-secondary">Loading team data...</div>;
+  }
+
+  if (error || !teamData) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8 text-center">
         <Activity className="w-16 h-16 text-fpl-green mb-4" />
         <h2 className="text-2xl font-bold mb-2">Welcome to FPL Intelligence</h2>
         <p className="text-text-secondary mb-6 max-w-md">
-          To get started, please configure your FPL Team ID in the settings.
+          To get started, please configure the FPL_TEAM_ID environment variable in your deployment settings.
         </p>
         <Link to="/settings" className="bg-fpl-green text-fpl-purple font-bold px-6 py-2 rounded-lg">
           Go to Settings
@@ -25,20 +27,42 @@ export default function MyTeam() {
     );
   }
 
-  if (staticLoading || liveLoading) {
-    return <div className="p-8 text-center text-text-secondary">Loading team data...</div>;
-  }
+  let startingXi: any[] = [];
+  let bench: any[] = [];
 
-  // Mock a squad for display purposes based on highest owned players
-  const sortedPlayers = [...players].sort((a, b) => b.fpl.ownership - a.fpl.ownership);
-  
-  const gks = sortedPlayers.filter(p => p.position === 'GKP').slice(0, 2);
-  const defs = sortedPlayers.filter(p => p.position === 'DEF').slice(0, 5);
-  const mids = sortedPlayers.filter(p => p.position === 'MID').slice(0, 5);
-  const fwds = sortedPlayers.filter(p => p.position === 'FWD').slice(0, 3);
-  
-  const startingXi = [gks[0], ...defs.slice(0, 3), ...mids.slice(0, 4), ...fwds.slice(0, 3)].filter(Boolean);
-  const bench = [gks[1], defs[3], defs[4], mids[4]].filter(Boolean);
+  if (picks && picks.picks) {
+    const sortedPicks = [...picks.picks].sort((a, b) => a.position - b.position);
+    sortedPicks.forEach((pick: any) => {
+      const player = players.find(p => p.id === pick.element);
+      if (player) {
+        const item = {
+          player,
+          isCaptain: pick.is_captain,
+          isViceCaptain: pick.is_vice_captain
+        };
+        if (pick.position <= 11) {
+          startingXi.push(item);
+        } else {
+          bench.push(item);
+        }
+      }
+    });
+  } else {
+    // Mock a squad for display purposes based on highest owned players
+    const sortedPlayers = [...players].sort((a, b) => b.fpl.ownership - a.fpl.ownership);
+
+    const gks = sortedPlayers.filter(p => p.position === 'GKP').slice(0, 2);
+    const defs = sortedPlayers.filter(p => p.position === 'DEF').slice(0, 5);
+    const mids = sortedPlayers.filter(p => p.position === 'MID').slice(0, 5);
+    const fwds = sortedPlayers.filter(p => p.position === 'FWD').slice(0, 3);
+
+    startingXi = [gks[0], ...defs.slice(0, 3), ...mids.slice(0, 4), ...fwds.slice(0, 3)].filter(Boolean).map((player, idx, arr) => ({
+       player,
+       isCaptain: idx === arr.length - 1,
+       isViceCaptain: idx === arr.length - 2
+    }));
+    bench = [gks[1], defs[3], defs[4], mids[4]].filter(Boolean).map(player => ({ player }));
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto">
@@ -77,20 +101,20 @@ export default function MyTeam() {
         </div>
         
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
-          {startingXi.map((player, idx) => (
+          {startingXi.map((item: any) => (
              <PlayerCard 
-               key={player.id} 
-               player={player} 
-               isCaptain={idx === startingXi.length - 1} // Mock captain
-               isViceCaptain={idx === startingXi.length - 2} // Mock VC
+               key={item.player.id}
+               player={item.player}
+               isCaptain={item.isCaptain}
+               isViceCaptain={item.isViceCaptain}
              />
           ))}
         </div>
 
         <h2 className="text-xl font-bold mb-4 text-text-secondary">Bench</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 opacity-75">
-          {bench.map(player => (
-             <PlayerCard key={player.id} player={player} />
+          {bench.map((item: any) => (
+             <PlayerCard key={item.player.id} player={item.player} />
           ))}
         </div>
       </div>
